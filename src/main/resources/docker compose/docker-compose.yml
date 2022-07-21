@@ -1,0 +1,83 @@
+# để start service chỉ định docker compose: docker-compose <ten_service>
+# để start all services: docker-compose up
+
+version: '3.7'
+
+# định nghĩa các files images mà Docker muốn pull về (mỗi image được gọi là một service)
+services:
+
+  # tên service (tự đặt)
+  elasticsearch:
+
+    # chỉ định các file images muốn pull về
+    # image: ten_image:version (tìm ở hub.docker.com)
+    image: elasticsearch:8.3.1
+
+    # tên của container docker (tự đặt)
+    container_name: elasticsearch
+
+    # ánh xạ ổ đĩa docker tới ổ đĩa hệ thống
+    
+    volumes:
+      # ./: tương ứng đường dẫn của folder hiện tại (là Central Log)
+      # tương ứng <url đĩa thật>:<url docker>: CentralLog/elastic_data:/usr/share/elasticsearch/data 
+      # khi download elasticsearch thì các files của nó sẽ được lưu trữ ở CentralLog/elastic_data
+      - ./elastic_data:/usr/share/elasticsearch/data
+
+    # port cua file image (có thể có 1 hoặc nhiều port)
+    ports:
+      - 9200:9200
+      - 9300:9300
+
+    # định các biến môi trường
+    environment:
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+
+      # elasticsearch có nhiều fluster (nhánh khác nhau), nhưng ở đây chỉ sử dụng 1 (single-node)
+      discovery.type: single-node
+
+      # username mặc định là elastic
+      # ELASTIC_PASSWORD: "admin123"
+      ELASTIC_PASSWORD: admin123
+      # xpack.security.enabled: "true": cần có username password để đăng nhập
+      xpack.security.enabled: "true"
+
+    # tên network được sử dụng (tự đặt tên và định nghĩa cùng cấp tầng services)
+    networks:
+      - elk
+    
+  kibana:
+    image: kibana:8.3.1
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+
+      # chỉ định elasticsearch mà kibana show giao diện
+      # http://<name_container_designated_elasticsearch>:<port>
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+
+      # username mặc định luôn là kibana_system
+      ELASTICSEARCH_USERNAME: kibana_system
+
+      # khi chạy kibana lần đầu thì sử dụng password mặc định, sử dụng APIs mặc định của kibana để đổi password
+      ELASTICSEARCH_PASSWORD: admin123
+    depends_on:
+      - elasticsearch
+
+    # set cùng network với elasticsearch mà kibana show giao diện
+    networks:
+      - elk
+
+# không bắt buộc
+volumes:
+  setup:
+  elastic_data:
+
+# định nghĩa networks giúp các services dùng chung ip (network) nhưng khác nhau về port trên cùng docker
+# cùng cấp với tầng services
+networks:
+  elk:
+
+    # driver cho phép tương tác giữa các services
+    driver: bridge
